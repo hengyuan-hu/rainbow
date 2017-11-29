@@ -39,16 +39,9 @@ class DQNAgent(object):
             actions: Variable [batch, num_actions] one hot encoding
             targets: Variable [batch, 1]
         """
-        # utils.assert_eq(a.dim(), 2)
         utils.assert_eq(actions.size(1), self.num_actions)
 
         qs = self.online_q_net(states)
         preds = (qs * actions).sum(1)
         err = nn.functional.smooth_l1_loss(preds, targets)
         return err
-
-    # def _update_q_net(self, batch_size, logger):
-    #     samples = self.replay_memory.sample(batch_size)
-    #     x, a, y = core.samples_to_minibatch(samples, self)
-    #     loss = self.online_q_net.train_step(x, a, y, 10)
-    #     logger.append('loss', loss)

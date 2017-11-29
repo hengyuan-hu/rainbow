@@ -49,7 +49,7 @@ class DuelingNetwork(nn.Module):
         self.val = val
 
     def forward(self, x):
-        assert x.max() <= 1.0
+        assert x.data.max() <= 1.0
         batch = x.size(0)
         feat = self.conv(x)
         feat = feat.view(batch, -1)

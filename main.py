@@ -41,18 +41,27 @@ def main():
 
     parser.add_argument('--burn_in_steps', default=200000, type=int)
     parser.add_argument('--no_op_start', default=30, type=int)
-    # parser.add_argument('--use_double_dqn', action='store_true')
+
     parser.add_argument('--dev', action='store_true')
-    parser.add_argument('--output', default='experiments/test')
-    parser.add_argument('--algorithm', default='dqn', type=str)
+    parser.add_argument('--output', default='experiments/')
+    parser.add_argument('--double_dqn', action='store_true')
+    parser.add_argument('--dueling', action='store_true')
 
     args = parser.parse_args()
     if args.dev:
-        args.burn_in_steps = 500
-        args.steps_per_eval = 1000
+        args.burn_in_steps = 10000
+        args.steps_per_eval = 200000
 
     game_name = args.rom.split('/')[-1].split('.')[0]
-    args.output = '%s_%s_%s' % (args.output, game_name, args.algorithm)
+    if args.dueling:
+        model_name = 'dueling'
+    else:
+        model_name = 'basic'
+    if args.double_dqn:
+        model_name += '_ddqn'
+
+    args.output = os.path.join(args.output, game_name, model_name)
+    # TODO: better this
     if not os.path.exists(args.output):
         os.makedirs(args.output)
     with open(os.path.join(args.output, 'configs.txt'), 'w') as f:
@@ -87,7 +96,8 @@ if __name__ == '__main__':
         large_randint(),
         False)
 
-    q_net = model.build_basic_network(4, 84, train_env.num_actions, None).cuda()
+    # q_net = model.build_basic_network(4, 84, train_env.num_actions, None).cuda()
+    q_net = model.build_dueling_network(4, 84, train_env.num_actions, None).cuda()
     agent = dqn.DQNAgent(q_net, train_env.num_actions)
     train_policy = LinearDecayGreedyEpsilonPolicy(
         args.train_start_eps,
@@ -105,13 +115,13 @@ if __name__ == '__main__':
     train(agent,
           train_env,
           train_policy,
+          args.double_dqn,
           replay_memory,
           args.gamma,
           args.batch_size,
           args.num_iters,
           args.steps_per_update,
           args.steps_per_sync,
-          # eval_args,
           logger,
           args.steps_per_eval,
           evaluator,

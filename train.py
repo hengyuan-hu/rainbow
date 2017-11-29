@@ -14,6 +14,7 @@ import core
 def train(agent,
           env,
           policy,
+          double_dqn,
           replay_memory,
           gamma,
           batch_size,
@@ -26,40 +27,39 @@ def train(agent,
           output_path):
 
     optim = torch.optim.Adam(agent.parameters(), lr=6.25e-5, eps=1.5e-4)
+    action_dist = np.zeros(env.num_actions)
 
     num_epsd = 0
     epsd_iters = 0
-
+    epsd_rewards = 0
     t = time.time()
-
     for i in xrange(num_iters):
         if env.end:
             num_epsd += 1
-            if num_epsd % 100 == 0:
+            if num_epsd % 10 == 0:
                 fps = epsd_iters / (time.time() - t)
                 msg = 'Episode: %d, Iter: %d, Fps: %.2f'
                 print logger.log(msg % (num_epsd, i+1, fps))
+                print logger.log('sum clipped rewards %d' %  epsd_rewards)
                 epsd_iters = 0
+                epsd_rewards = 0
                 t = time.time()
-                # print policy.epsilon
-            if num_epsd > 1:
-                logger.append('rewards', rewards)
 
             state = env.reset()
-            rewards = 0
 
         action = policy.get_action(state)
+        action_dist[action] += 1
         # print action
         next_state, reward = env.step(action)
         replay_memory.append(state, action, reward, next_state, env.end)
         state = next_state
-        rewards += reward
+        epsd_rewards += reward
         epsd_iters += 1
 
         if (i+1) %  steps_per_update == 0:
             samples = replay_memory.sample(batch_size)
             states, actions, targets = core.samples_to_minibatch(
-                samples, agent, gamma, True)
+                samples, agent, gamma, double_dqn)
             states = Variable(states)
             actions = Variable(actions)
             targets = Variable(targets)
@@ -69,6 +69,14 @@ def train(agent,
             optim.zero_grad()
             logger.append('loss', loss.data[0])
 
+        # if (i+1) % 10000 == 0:
+        #     log = 'Train actions dist:\n'
+        #     probs = list(action_dist / action_dist.sum())
+        #     for a, p in enumerate(probs):
+        #         log += '\t action: %d, p: %.4f\n' % (a, p)
+        #     print log
+        #     action_dist = np.zeros(env.num_actions)
+
         if (i+1) % steps_per_sync == 0:
             print 'syncing nets, i: %d' % (i+1)
             agent.sync_target()
@@ -77,30 +85,16 @@ def train(agent,
             eval_msg = evaluator()
             print logger.log(eval_msg)
 
-        # if (i+1) % eval_args['eval_per_iter'] == 0:
-        #     eval_log = evaluate(
-        #         eval_args['env'], eval_args['policy'], eval_args['num_eps'])
-        #     print logger.log(eval_log)
-
-        # if (i+1) % (num_iters/4) == 0:
-        #     model_path = os.path.join(
-        #         output_path, 'net_%d.pth' % ((i+1)/(num_iters/4)))
-        #     torch.save(agent.online_q_net.state_dict(), model_path)
-
 
 def evaluate(env, policy, num_epsd):
-    state_gpu = torch.cuda.FloatTensor(
-        1, env.num_frames, env.frame_size, env.frame_size)
-
     state = env.reset()
     actions = np.zeros(env.num_actions)
 
     total_rewards = np.zeros(num_epsd)
     eps_idx = 0
     log = ''
-    # TODO: implement no-op start
-    while eps_idx < num_epsd:
 
+    while eps_idx < num_epsd:
         action = policy.get_action(state)
         actions[action] += 1
         state, _ = env.step(action)

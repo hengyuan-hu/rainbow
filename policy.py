@@ -26,7 +26,7 @@ class GreedyEpsilonPolicy(object):
 
         q_vals = self.q_agent.online_q_values(state)
         utils.assert_eq(q_vals.size(0), 1)
-        q_vals = q_vals.view(-1) # q_vals.size()[1])
+        q_vals = q_vals.view(-1)
         q_vals = q_vals.cpu().numpy()
         action = q_vals.argmax()
         return action
