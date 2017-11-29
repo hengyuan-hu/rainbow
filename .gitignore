@@ -1,4 +1,3 @@
 *.pyc
-roms/*
 test_env/
 experiments/
