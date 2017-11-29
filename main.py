@@ -1,10 +1,10 @@
 """Run Atari Environment with DQN."""
+import torch
 import argparse
 import os
 import random
 import numpy as np
 from env import Environment
-import torch
 import dqn
 from policy import GreedyEpsilonPolicy, LinearDecayGreedyEpsilonPolicy
 import model
