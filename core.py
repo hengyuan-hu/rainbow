@@ -4,25 +4,26 @@ import random
 import torch
 import time
 import numpy as np
+from policy import GreedyEpsilonPolicy
 
 
 class Sample(object):
     def __init__(self, state, action, reward, next_state, end):
         utils.assert_eq(type(state), type(next_state))
-        self._state = state.astype(np.uint8)
-        self._next_state = next_state.astype(np.uint8)
-        # assert (self._state[1:] == self._next_state[:-1]).all()
+
+        self._state = (state * 255.0).astype(np.uint8)
+        self._next_state = (next_state * 255.0).astype(np.uint8)
         self.action = action
         self.reward = reward
         self.end = end
 
     @property
     def state(self):
-        return self._state.astype(np.float32)
+        return self._state.astype(np.float32) / 255.0
 
     @property
     def next_state(self):
-        return self._next_state.astype(np.float32)
+        return self._next_state.astype(np.float32) / 255.0
 
     def __repr__(self):
         info = ('S(mean): %3.4f, A: %s, R: %s, NS(mean): %3.4f, End: %s'
@@ -45,6 +46,21 @@ class ReplayMemory(object):
         to_evict = self.oldest_idx
         self.oldest_idx = (self.oldest_idx + 1) % self.max_size
         return to_evict
+
+    def burn_in(self, env, agent, num_steps):
+        policy = GreedyEpsilonPolicy(1, agent) # uniform policy
+        i = 0
+        while i < num_steps or not env.end:
+            if env.end:
+                state = env.reset()
+            action = policy.get_action(None)
+            next_state, reward = env.step(action)
+            self.append(state, action, reward, next_state, env.end)
+            state = next_state
+            i += 1
+            if i % 10000 == 0:
+                print '%d frames burned in' % i
+        print '%d frames burned into the memory.' % i
 
     def append(self, state, action, reward, next_state, end):
         assert len(self.samples) <= self.max_size
@@ -91,8 +107,9 @@ def _samples_to_tensors(samples):
     return states, actions, rewards, next_states, non_ends
 
 
-def samples_to_minibatch(samples, q_agent, double_dqn):
+def samples_to_minibatch(samples, q_agent, gamma, double_dqn):
     """[samples] -> minibatch (xs, as, ys)
+
     convert [sample.state] to input tensor xs
     compute target tensor ys according to whether terminate and q_network
     it is possible to have only one kind of sample (all term/non-term)
@@ -104,9 +121,9 @@ def samples_to_minibatch(samples, q_agent, double_dqn):
     return: Tensors that can be directly used by q_network
         xs: (b, ?) FloatTensor
         as: (b, n_actions) one-hot FloatTensor
-        ys: (b, 1) FloatTensor
+        targets: (b, 1) FloatTensor
     """
-    states, actions, ys, next_states, non_ends = _samples_to_tensors(samples)
+    states, actions, targets, next_states, non_ends = _samples_to_tensors(samples)
 
     target_q_vals = q_agent.target_q_values(next_states)
     n_actions = target_q_vals.size(1)
@@ -114,12 +131,16 @@ def samples_to_minibatch(samples, q_agent, double_dqn):
     actions_one_hot.scatter_(1, actions, 1)
 
     if double_dqn:
-        next_actions = q_agent.online_q_values(next_states).max(1)[1]
+        next_actions = q_agent.online_q_values(next_states).max(1, keepdim=True)[1]
         next_actions_one_hot = torch.zeros(len(samples), n_actions).cuda()
         next_actions_one_hot.scatter_(1, next_actions, 1)
-        next_qs = (target_q_vals * next_actions_one_hot).sum(1)
+        next_qs = (target_q_vals * next_actions_one_hot).sum(1, keepdim=True)
     else:
-        next_qs = target_q_vals.max(1)[0] # max returns a pair
-    ys.add_(next_qs.mul_(non_ends).mul_(q_agent.gamma))
+        next_qs = target_q_vals.max(1, keepdim=True)[0] # max returns a pair
 
-    return states, actions_one_hot, ys
+    # print next_qs.size()
+
+    targets.add_(next_qs.mul_(non_ends).mul_(gamma))
+
+    # print '<<<', targets.size()
+    return states, actions_one_hot, targets

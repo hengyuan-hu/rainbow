@@ -1,10 +1,9 @@
-"""Wrapper of OpenAI Gym enviroment"""
 import os
 from collections import deque
 import cv2
 import numpy as np
 from ale_python_interface import ALEInterface
-# import time
+
 
 # glb_counter = 0
 
@@ -64,6 +63,7 @@ class Environment(object):
         screen = self.ale.getScreenRGB()
         max_screen = np.maximum(self.prev_screen, screen)
         frame = preprocess_frame(max_screen, self.frame_size)
+        frame /= 255.0
         # cv2.imwrite('test_env/%d.png' % glb_counter, cv2.resize(frame, (800, 800)))
         # glb_counter += 1
         # print 'glb_counter', glb_counter
@@ -75,10 +75,10 @@ class Environment(object):
             self.frame_queue.append(
                 np.zeros((self.frame_size, self.frame_size), dtype=np.float32))
 
-        if self.ale.game_over():
-            self.ale.reset_game()
-            self.clipped_reward = 0
-            self.total_reward = 0
+        # if self.ale.game_over():
+        self.ale.reset_game()
+        self.clipped_reward = 0
+        self.total_reward = 0
         # else:
         #     assert self.dead_as_eoe
         n = np.random.randint(0, self.no_op_start)

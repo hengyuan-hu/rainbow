@@ -11,81 +11,114 @@ from policy import GreedyEpsilonPolicy
 import core
 
 
-def train(agent, env, policy, batch_size, num_iters, update_freq,
-          eval_args, logger, output_path):
-    num_eps = 0
-    prev_eps_iters = 0
-    state_gpu = torch.cuda.FloatTensor(
-        1, env.num_frames, env.frame_size, env.frame_size)
+def train(agent,
+          env,
+          policy,
+          replay_memory,
+          gamma,
+          batch_size,
+          num_iters,
+          steps_per_update,
+          steps_per_sync,
+          logger,
+          steps_per_eval,
+          evaluator,
+          output_path):
+
+    optim = torch.optim.Adam(agent.parameters(), lr=6.25e-5, eps=1.5e-4)
+
+    num_epsd = 0
+    epsd_iters = 0
+
+    t = time.time()
 
     for i in xrange(num_iters):
         if env.end:
-            t = time.time()
+            num_epsd += 1
+            if num_epsd % 100 == 0:
+                fps = epsd_iters / (time.time() - t)
+                msg = 'Episode: %d, Iter: %d, Fps: %.2f'
+                print logger.log(msg % (num_epsd, i+1, fps))
+                epsd_iters = 0
+                t = time.time()
+                # print policy.epsilon
+            if num_epsd > 1:
+                logger.append('rewards', rewards)
+
             state = env.reset()
             rewards = 0
 
-        state_gpu.copy_(torch.from_numpy(state.reshape(state_gpu.size())))
-        action = agent.select_action(state_gpu, policy)
+        action = policy.get_action(state)
+        # print action
         next_state, reward = env.step(action)
-        agent.replay_memory.append(state, action, reward, next_state, env.end)
+        replay_memory.append(state, action, reward, next_state, env.end)
         state = next_state
         rewards += reward
+        epsd_iters += 1
 
-        if (i+1) % update_freq == 0:
-            agent._update_q_net(batch_size, logger)
+        if (i+1) %  steps_per_update == 0:
+            samples = replay_memory.sample(batch_size)
+            states, actions, targets = core.samples_to_minibatch(
+                samples, agent, gamma, True)
+            states = Variable(states)
+            actions = Variable(actions)
+            targets = Variable(targets)
+            loss = agent.loss(states, actions, targets)
+            loss.backward()
+            optim.step()
+            optim.zero_grad()
+            logger.append('loss', loss.data[0])
 
-        if (i+1) % (update_freq * agent.target_update_freq) == 0:
-            agent.target_q_net = copy.deepcopy(agent.online_q_net)
+        if (i+1) % steps_per_sync == 0:
+            print 'syncing nets, i: %d' % (i+1)
+            agent.sync_target()
 
-        if env.end:
-            fps = (i+1-prev_eps_iters) / (time.time()-t)
-            num_eps += 1
-            log_msg = ('Episode: %d, Iter: %d, Reward: %d; Fps: %.2f'
-                       % (num_eps, i+1, rewards, fps))
-            print logger.log(log_msg)
-            prev_eps_iters = i+1
+        if (i+1) % steps_per_eval == 0:
+            eval_msg = evaluator()
+            print logger.log(eval_msg)
 
-        if (i+1) % eval_args['eval_per_iter'] == 0:
-            eval_log = evaluate(
-                eval_args['env'], eval_args['policy'], eval_args['num_eps'])
-            print logger.log(eval_log)
+        # if (i+1) % eval_args['eval_per_iter'] == 0:
+        #     eval_log = evaluate(
+        #         eval_args['env'], eval_args['policy'], eval_args['num_eps'])
+        #     print logger.log(eval_log)
 
-        if (i+1) % (num_iters/4) == 0:
-            model_path = os.path.join(
-                output_path, 'net_%d.pth' % ((i+1)/(num_iters/4)))
-            torch.save(agent.online_q_net.state_dict(), model_path)
+        # if (i+1) % (num_iters/4) == 0:
+        #     model_path = os.path.join(
+        #         output_path, 'net_%d.pth' % ((i+1)/(num_iters/4)))
+        #     torch.save(agent.online_q_net.state_dict(), model_path)
 
 
-def evaluate(agent, env, policy, num_eps):
-    """Test your agent with a provided environment.
-
-    You can also call the render function here if you want to
-    visually inspect your policy.
-    """
+def evaluate(env, policy, num_epsd):
     state_gpu = torch.cuda.FloatTensor(
         1, env.num_frames, env.frame_size, env.frame_size)
+
     state = env.reset()
     actions = np.zeros(env.num_actions)
 
-    total_rewards = np.zeros(num_eps)
+    total_rewards = np.zeros(num_epsd)
     eps_idx = 0
     log = ''
-    while eps_idx < num_eps:
-        state_gpu.copy_(torch.from_numpy(state.reshape(state_gpu.size())))
-        action = agent.select_action(state_gpu, policy)
+    # TODO: implement no-op start
+    while eps_idx < num_epsd:
+
+        action = policy.get_action(state)
         actions[action] += 1
         state, _ = env.step(action)
 
         if env.end:
             total_rewards[eps_idx] = env.total_reward
             eps_log = ('>>>Eval: [%d/%d], rewards: %s\n' %
-                       (eps_idx+1, num_eps, total_rewards[eps_idx]))
+                       (eps_idx+1, num_epsd, total_rewards[eps_idx]))
             log += eps_log
-            if eps_idx < num_eps-1: # leave last reset to next run
+            if eps_idx < num_epsd - 1: # leave last reset to next run
                 state = env.reset()
             eps_idx += 1
 
     eps_log = '>>>Eval: avg total rewards: %s\n' % total_rewards.mean()
     log += eps_log
-    log += '>>>Eval: actions dist: %s\n' % list(actions/actions.sum())
+    log += '>>>Eval: actions dist:\n'
+    probs = list(actions/actions.sum())
+    for a, p in enumerate(probs):
+        log += '\t action: %d, p: %.4f\n' % (a, p)
+
     return log

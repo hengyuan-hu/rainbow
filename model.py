@@ -10,7 +10,7 @@ class BasicNetwork(nn.Module):
         self.fc = fc
 
     def forward(self, x):
-        assert x.max() <= 1.0 # TODO: remove
+        assert x.data.max() <= 1.0
         batch = x.size(0)
         y = self.conv(x)
         y = y.view(batch, -1)

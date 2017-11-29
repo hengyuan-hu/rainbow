@@ -18,13 +18,13 @@ class GreedyEpsilonPolicy(object):
             action: int, [0, num_actions)
         """
         if np.random.uniform() <= self.epsilon:
-            action = np.random.randint(0, q_agent.num_actions)
+            action = np.random.randint(0, self.q_agent.num_actions)
             return action
 
         state = torch.from_numpy(state)
         state = state.unsqueeze(0).cuda()
 
-        q_vals = self.online_q_values(state)
+        q_vals = self.q_agent.online_q_values(state)
         utils.assert_eq(q_vals.size(0), 1)
         q_vals = q_vals.view(-1) # q_vals.size()[1])
         q_vals = q_vals.cpu().numpy()
@@ -45,7 +45,7 @@ class LinearDecayGreedyEpsilonPolicy(GreedyEpsilonPolicy):
             self.epsilon -= self.decay_rate
             self.num_steps -= 1
 
-        return super(LinearDecayGreedyEpsilonPolicy, self).get_action(q_values)
+        return super(LinearDecayGreedyEpsilonPolicy, self).get_action(state)
 
 
 # if __name__ == '__main__':
