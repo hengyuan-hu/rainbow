@@ -25,7 +25,7 @@ def main():
     parser.add_argument('--seed', default=6666999, type=int, help='Random seed')
     parser.add_argument('--q_net', default='', type=str, help='load pretrained q net')
     parser.add_argument('--gamma', default=0.99, type=float, help='discount factor')
-    parser.add_argument('--num_iters', default=50000000, type=int)
+    parser.add_argument('--num_iters', default=int(5e7), type=int)
     parser.add_argument('--replay_buffer_size', default=int(1e6), type=int)
     parser.add_argument('--num_frames', default=4, type=int, help='nframe, QNet input')
     parser.add_argument('--frame_size', default=84, type=int)
@@ -37,7 +37,7 @@ def main():
     parser.add_argument('--train_final_eps', default=0.1, type=float)
     parser.add_argument('--train_eps_num_steps', default=int(1e6), type=int)
     parser.add_argument('--eval_eps', default=0.01, type=float)
-    parser.add_argument('--steps_per_eval', default=int(1e5), type=int)
+    parser.add_argument('--steps_per_eval', default=int(5e5), type=int)
 
     parser.add_argument('--burn_in_steps', default=200000, type=int)
     parser.add_argument('--no_op_start', default=30, type=int)
@@ -96,8 +96,12 @@ if __name__ == '__main__':
         large_randint(),
         False)
 
-    # q_net = model.build_basic_network(4, 84, train_env.num_actions, None).cuda()
-    q_net = model.build_dueling_network(4, 84, train_env.num_actions, None).cuda()
+    if args.dueling:
+        q_net = model.build_dueling_network(4, 84, train_env.num_actions, None)
+    else:
+        q_net = model.build_basic_network(4, 84, train_env.num_actions, None)
+
+    q_net.cuda()
     agent = dqn.DQNAgent(q_net, train_env.num_actions)
     train_policy = LinearDecayGreedyEpsilonPolicy(
         args.train_start_eps,
@@ -111,7 +115,7 @@ if __name__ == '__main__':
 
     logger = Logger(os.path.join(args.output, 'train_log.txt'))
 
-    evaluator = lambda : evaluate(eval_env, eval_policy, 5)
+    evaluator = lambda : evaluate(eval_env, eval_policy, 10)
     train(agent,
           train_env,
           train_policy,

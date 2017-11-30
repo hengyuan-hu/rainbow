@@ -114,9 +114,10 @@ def samples_to_minibatch(samples, q_agent, gamma, double_dqn):
     compute target tensor ys according to whether terminate and q_network
     it is possible to have only one kind of sample (all term/non-term)
 
+    normal_dqn:
+        y = r + max_a'(online_q(s', a'))
     double_dqn:
-        True: y = r + target_q(s', argmax_a'(onlineQ(s',a')))
-        False: y = r + max_a'(online_q(s', a'))
+        y = r + target_q(s', argmax_a'(onlineQ(s',a')))
 
     return: Tensors that can be directly used by q_network
         xs: (b, ?) FloatTensor
@@ -138,9 +139,5 @@ def samples_to_minibatch(samples, q_agent, gamma, double_dqn):
     else:
         next_qs = target_q_vals.max(1, keepdim=True)[0] # max returns a pair
 
-    # print next_qs.size()
-
     targets.add_(next_qs.mul_(non_ends).mul_(gamma))
-
-    # print '<<<', targets.size()
     return states, actions_one_hot, targets
