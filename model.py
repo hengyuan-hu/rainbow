@@ -42,7 +42,7 @@ class DistributionalBasicNetwork(nn.Module):
         super(DistributionalBasicNetwork, self).__init__()
         self.conv = conv
         self.fc = fc
-        self.num_actions
+        self.num_actions = num_actions
         self.num_atoms = num_atoms
 
     def forward(self, x):

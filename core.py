@@ -87,11 +87,11 @@ def samples_to_tensors(samples):
 
     states_shape = (num_samples, ) + samples[0].state.shape
     states = np.zeros(states_shape, dtype=np.float32)
-    next_states = np.zeros_like(states)
+    next_states = np.zeros(states_shape, dtype=np.float32)
 
-    rewards = np.zeros((num_samples, 1), dtype=np.float32)
-    actions = np.zeros_like(rewards, dtype=np.int64)
-    non_ends = np.zeros_like(rewards)
+    rewards = np.zeros(num_samples, dtype=np.float32)
+    actions = np.zeros(num_samples, dtype=np.int64)
+    non_ends = np.zeros(num_samples, dtype=np.float32)
 
     for i, s in enumerate(samples):
         states[i] = s.state

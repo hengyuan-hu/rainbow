@@ -47,21 +47,29 @@ def main():
     parser.add_argument('--suffix', default='', type=str)
     parser.add_argument('--double_dqn', action='store_true')
     parser.add_argument('--dueling', action='store_true')
+    parser.add_argument('--dist', action='store_true')
 
     args = parser.parse_args()
     if args.dev:
-        args.burn_in_steps = 1000
+        args.burn_in_steps = 500
         args.steps_per_eval = 200000
 
     game_name = args.rom.split('/')[-1].split('.')[0]
-    if args.dueling:
-        model_name = 'dueling'
-    else:
-        model_name = 'basic'
-    if args.double_dqn:
-        model_name += '_ddqn'
 
-    model_name += args.suffix
+    model_name = []
+    if args.dist:
+        model_name.append('dist')
+
+    if args.dueling:
+        model_name.append('dueling')
+    else:
+        model_name.append('basic')
+
+    if args.double_dqn:
+        model_name.append('ddqn')
+
+    model_name.append(args.suffix)
+    model_name = '_'.join(model_name)
     args.output = os.path.join(args.output, game_name, model_name)
     # TODO: better this
     if not os.path.exists(args.output):
@@ -98,13 +106,22 @@ if __name__ == '__main__':
         large_randint(),
         False)
 
-    if args.dueling:
-        q_net = model.build_dueling_network(4, 84, train_env.num_actions, None)
-    else:
-        q_net = model.build_basic_network(4, 84, train_env.num_actions, None)
 
-    q_net.cuda()
-    agent = dqn.DQNAgent(q_net, args.double_dqn, train_env.num_actions)
+    if args.dist:
+        num_atoms = 51
+        q_net = model.build_distributional_basic_network(
+            4, 84, train_env.num_actions, num_atoms, None).cuda()
+        agent = dqn.DistributionalDQNAgent(
+            q_net, args.double_dqn, train_env.num_actions, num_atoms, -10, 10)
+    else:
+        if args.dueling:
+            q_net = model.build_dueling_network(4, 84, train_env.num_actions, None)
+        else:
+            q_net = model.build_basic_network(4, 84, train_env.num_actions, None)
+
+        q_net.cuda()
+        agent = dqn.DQNAgent(q_net, args.double_dqn, train_env.num_actions)
+
     train_policy = LinearDecayGreedyEpsilonPolicy(
         args.train_start_eps,
         args.train_final_eps,

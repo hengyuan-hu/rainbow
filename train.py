@@ -59,9 +59,10 @@ def train(agent,
             samples = replay_memory.sample(batch_size)
             states, actions, rewards, next_states, non_ends \
                 = core.samples_to_tensors(samples)
-            actions = utils.one_hot(actions, agent.num_actions)
+            actions = utils.one_hot(actions.unsqueeze(1), agent.num_actions)
             targets = agent.compute_targets(rewards, next_states, non_ends, gamma)
 
+            # return
             states = Variable(states)
             actions = Variable(actions)
             targets = Variable(targets)
