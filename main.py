@@ -68,7 +68,9 @@ def main():
     if args.double_dqn:
         model_name.append('ddqn')
 
-    model_name.append(args.suffix)
+    if args.suffix:
+        model_name.append(args.suffix)
+
     model_name = '_'.join(model_name)
     args.output = os.path.join(args.output, game_name, model_name)
     # TODO: better this
