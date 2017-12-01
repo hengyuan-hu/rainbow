@@ -43,13 +43,14 @@ def main():
     parser.add_argument('--no_op_start', default=30, type=int)
 
     parser.add_argument('--dev', action='store_true')
-    parser.add_argument('--output', default='experiments/')
+    parser.add_argument('--output', default='experiments/', type=str)
+    parser.add_argument('--suffix', default='', type=str)
     parser.add_argument('--double_dqn', action='store_true')
     parser.add_argument('--dueling', action='store_true')
 
     args = parser.parse_args()
     if args.dev:
-        args.burn_in_steps = 10000
+        args.burn_in_steps = 1000
         args.steps_per_eval = 200000
 
     game_name = args.rom.split('/')[-1].split('.')[0]
@@ -60,6 +61,7 @@ def main():
     if args.double_dqn:
         model_name += '_ddqn'
 
+    model_name += args.suffix
     args.output = os.path.join(args.output, game_name, model_name)
     # TODO: better this
     if not os.path.exists(args.output):
@@ -102,7 +104,7 @@ if __name__ == '__main__':
         q_net = model.build_basic_network(4, 84, train_env.num_actions, None)
 
     q_net.cuda()
-    agent = dqn.DQNAgent(q_net, train_env.num_actions)
+    agent = dqn.DQNAgent(q_net, args.double_dqn, train_env.num_actions)
     train_policy = LinearDecayGreedyEpsilonPolicy(
         args.train_start_eps,
         args.train_final_eps,
@@ -119,7 +121,7 @@ if __name__ == '__main__':
     train(agent,
           train_env,
           train_policy,
-          args.double_dqn,
+          # args.double_dqn,
           replay_memory,
           args.gamma,
           args.batch_size,

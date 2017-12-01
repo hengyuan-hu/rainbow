@@ -2,6 +2,19 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import numpy as np
+
+
+_FLOAT32_MAX = np.finfo(np.float32).max
+_HALF_LOG_MAX = float(np.log(_FLOAT32_MAX) / 2)
+
+
+def softmax(x, dim):
+    a = x.max(dim, keepdim=True)[0] - _HALF_LOG_MAX
+    x = x - a.expand_as(x)
+    exp_x = torch.exp(x)
+    sum_exp = exp_x.sum(dim, keepdim=True).expand_as(exp_x)
+    return exp_x / sum_exp
 
 
 def assert_eq(real, expected):
@@ -42,3 +55,10 @@ def count_output_size(input_shape, module):
     fake_input = Variable(torch.FloatTensor(*input_shape), volatile=True)
     output_size = module.forward(fake_input).view(-1).size()[0]
     return output_size
+
+
+def one_hot(x, n):
+    assert x.dim() == 2
+    one_hot_x = torch.zeros(x.size(0), n).cuda()
+    one_hot_x.scatter_(1, x, 1)
+    return one_hot_x

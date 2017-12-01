@@ -71,10 +71,10 @@ class ReplayMemory(object):
         else:
             self.samples.append(new_sample)
 
-    def sample(self, batch_size, indexes=None):
-        """Simpliest uniform sampling (w/o replacement) to produce a batch."""
+    def sample(self, batch_size):
+        """Simpliest uniform sampling (w/o replacement) to produce a batch.
+        """
         assert batch_size < len(self.samples), 'no enough samples to sample from'
-        assert indexes is None, 'not supported yet'
         return random.sample(self.samples, batch_size)
 
     def clear(self):
@@ -82,15 +82,17 @@ class ReplayMemory(object):
         self.oldest_idx = 0
 
 
-def _samples_to_tensors(samples):
-    assert len(samples) > 0
-    dummy_state = samples[0].state
+def samples_to_tensors(samples):
+    num_samples = len(samples)
 
-    states = np.zeros((len(samples),) + dummy_state.shape, dtype=np.float32)
+    states_shape = (num_samples, ) + samples[0].state.shape
+    states = np.zeros(states_shape, dtype=np.float32)
     next_states = np.zeros_like(states)
-    rewards = np.zeros((len(samples), 1), dtype=np.float32)
+
+    rewards = np.zeros((num_samples, 1), dtype=np.float32)
     actions = np.zeros_like(rewards, dtype=np.int64)
     non_ends = np.zeros_like(rewards)
+
     for i, s in enumerate(samples):
         states[i] = s.state
         next_states[i] = s.next_state
@@ -105,39 +107,3 @@ def _samples_to_tensors(samples):
     non_ends = torch.from_numpy(non_ends).cuda()
 
     return states, actions, rewards, next_states, non_ends
-
-
-def samples_to_minibatch(samples, q_agent, gamma, double_dqn):
-    """[samples] -> minibatch (xs, as, ys)
-
-    convert [sample.state] to input tensor xs
-    compute target tensor ys according to whether terminate and q_network
-    it is possible to have only one kind of sample (all term/non-term)
-
-    normal_dqn:
-        y = r + max_a'(online_q(s', a'))
-    double_dqn:
-        y = r + target_q(s', argmax_a'(onlineQ(s',a')))
-
-    return: Tensors that can be directly used by q_network
-        xs: (b, ?) FloatTensor
-        as: (b, n_actions) one-hot FloatTensor
-        targets: (b, 1) FloatTensor
-    """
-    states, actions, targets, next_states, non_ends = _samples_to_tensors(samples)
-
-    target_q_vals = q_agent.target_q_values(next_states)
-    n_actions = target_q_vals.size(1)
-    actions_one_hot = torch.zeros(len(samples), n_actions).cuda()
-    actions_one_hot.scatter_(1, actions, 1)
-
-    if double_dqn:
-        next_actions = q_agent.online_q_values(next_states).max(1, keepdim=True)[1]
-        next_actions_one_hot = torch.zeros(len(samples), n_actions).cuda()
-        next_actions_one_hot.scatter_(1, next_actions, 1)
-        next_qs = (target_q_vals * next_actions_one_hot).sum(1, keepdim=True)
-    else:
-        next_qs = target_q_vals.max(1, keepdim=True)[0] # max returns a pair
-
-    targets.add_(next_qs.mul_(non_ends).mul_(gamma))
-    return states, actions_one_hot, targets

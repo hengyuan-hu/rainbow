@@ -14,7 +14,6 @@ import core
 def train(agent,
           env,
           policy,
-          double_dqn,
           replay_memory,
           gamma,
           batch_size,
@@ -49,7 +48,6 @@ def train(agent,
 
         action = policy.get_action(state)
         action_dist[action] += 1
-        # print action
         next_state, reward = env.step(action)
         replay_memory.append(state, action, reward, next_state, env.end)
         state = next_state
@@ -57,9 +55,13 @@ def train(agent,
         epsd_iters += 1
 
         if (i+1) %  steps_per_update == 0:
+            # TODO, maybe: factor this out
             samples = replay_memory.sample(batch_size)
-            states, actions, targets = core.samples_to_minibatch(
-                samples, agent, gamma, double_dqn)
+            states, actions, rewards, next_states, non_ends \
+                = core.samples_to_tensors(samples)
+            actions = utils.one_hot(actions, agent.num_actions)
+            targets = agent.compute_targets(rewards, next_states, non_ends, gamma)
+
             states = Variable(states)
             actions = Variable(actions)
             targets = Variable(targets)
@@ -68,14 +70,6 @@ def train(agent,
             optim.step()
             optim.zero_grad()
             logger.append('loss', loss.data[0])
-
-        # if (i+1) % 10000 == 0:
-        #     log = 'Train actions dist:\n'
-        #     probs = list(action_dist / action_dist.sum())
-        #     for a, p in enumerate(probs):
-        #         log += '\t action: %d, p: %.4f\n' % (a, p)
-        #     print log
-        #     action_dist = np.zeros(env.num_actions)
 
         if (i+1) % steps_per_sync == 0:
             print 'syncing nets, i: %d' % (i+1)
