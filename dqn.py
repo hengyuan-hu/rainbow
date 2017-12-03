@@ -18,6 +18,9 @@ class DQNAgent(object):
         self.double_dqn = double_dqn
         self.num_actions = num_actions
 
+    def save_q_net(self, prefix):
+        torch.save(self.online_q_net.state_dict(), prefix+'online_q_net.pth')
+
     def parameters(self):
         return self.online_q_net.parameters()
 

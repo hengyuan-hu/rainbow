@@ -41,11 +41,13 @@ class LinearDecayGreedyEpsilonPolicy(GreedyEpsilonPolicy):
         self.decay_rate = (start_eps - end_eps) / float(num_steps)
 
     def get_action(self, state):
+        return super(LinearDecayGreedyEpsilonPolicy, self).get_action(state)
+
+    def decay(self):
         if self.num_steps > 0:
             self.epsilon -= self.decay_rate
             self.num_steps -= 1
 
-        return super(LinearDecayGreedyEpsilonPolicy, self).get_action(state)
 
 
 # if __name__ == '__main__':

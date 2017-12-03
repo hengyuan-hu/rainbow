@@ -9,6 +9,7 @@ import numpy as np
 import utils
 from policy import GreedyEpsilonPolicy
 import core
+from logger import Logger
 
 
 def train(agent,
@@ -20,14 +21,15 @@ def train(agent,
           num_iters,
           steps_per_update,
           steps_per_sync,
-          logger,
           steps_per_eval,
           evaluator,
-          output_path):
+          output_dir):
 
+    logger = Logger(os.path.join(output_dir, 'train_log.txt'))
     optim = torch.optim.Adam(agent.parameters(), lr=6.25e-5, eps=1.5e-4)
     action_dist = np.zeros(env.num_actions)
 
+    best_avg_rewards = 0
     num_epsd = 0
     epsd_iters = 0
     epsd_rewards = 0
@@ -62,7 +64,6 @@ def train(agent,
             actions = utils.one_hot(actions.unsqueeze(1), agent.num_actions)
             targets = agent.compute_targets(rewards, next_states, non_ends, gamma)
 
-            # return
             states = Variable(states)
             actions = Variable(actions)
             targets = Variable(targets)
@@ -72,13 +73,19 @@ def train(agent,
             optim.zero_grad()
             logger.append('loss', loss.data[0])
 
+            policy.decay()
+
         if (i+1) % steps_per_sync == 0:
             print 'syncing nets, i: %d' % (i+1)
             agent.sync_target()
 
         if (i+1) % steps_per_eval == 0:
-            eval_msg = evaluator()
+            avg_rewards, eval_msg = evaluator()
             print logger.log(eval_msg)
+
+            if avg_rewards > best_avg_rewards:
+                prefix = os.path.join(output_dir, '')
+                agent.save_q_net(prefix)
 
 
 def evaluate(env, policy, num_epsd):
@@ -103,11 +110,12 @@ def evaluate(env, policy, num_epsd):
                 state = env.reset()
             eps_idx += 1
 
-    eps_log = '>>>Eval: avg total rewards: %s\n' % total_rewards.mean()
+    avg_rewards =total_rewards.mean()
+    eps_log = '>>>Eval: avg total rewards: %s\n' % avg_rewards
     log += eps_log
     log += '>>>Eval: actions dist:\n'
     probs = list(actions/actions.sum())
     for a, p in enumerate(probs):
         log += '\t action: %d, p: %.4f\n' % (a, p)
 
-    return log
+    return avg_rewards, log

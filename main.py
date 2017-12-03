@@ -9,7 +9,6 @@ import dqn
 from policy import GreedyEpsilonPolicy, LinearDecayGreedyEpsilonPolicy
 import model
 from core import ReplayMemory
-from logger import Logger
 from train import train, evaluate
 
 
@@ -34,9 +33,9 @@ def main():
     parser.add_argument('--steps_per_sync', default=32000, type=int)
 
     parser.add_argument('--train_start_eps', default=1.0, type=float)
-    parser.add_argument('--train_final_eps', default=0.1, type=float)
+    parser.add_argument('--train_final_eps', default=0.01, type=float)
     parser.add_argument('--train_eps_num_steps', default=int(1e6), type=int)
-    parser.add_argument('--eval_eps', default=0.01, type=float)
+    parser.add_argument('--eval_eps', default=0.001, type=float)
     parser.add_argument('--steps_per_eval', default=int(5e5), type=int)
 
     parser.add_argument('--burn_in_steps', default=200000, type=int)
@@ -52,7 +51,7 @@ def main():
     args = parser.parse_args()
     if args.dev:
         args.burn_in_steps = 500
-        args.steps_per_eval = 200000
+        args.steps_per_eval = 5000
 
     game_name = args.rom.split('/')[-1].split('.')[0]
 
@@ -134,20 +133,16 @@ if __name__ == '__main__':
     replay_memory = ReplayMemory(args.replay_buffer_size)
     replay_memory.burn_in(train_env, agent, args.burn_in_steps)
 
-    logger = Logger(os.path.join(args.output, 'train_log.txt'))
-
     evaluator = lambda : evaluate(eval_env, eval_policy, 10)
     train(agent,
           train_env,
           train_policy,
-          # args.double_dqn,
           replay_memory,
           args.gamma,
           args.batch_size,
           args.num_iters,
           args.steps_per_update,
           args.steps_per_sync,
-          logger,
           args.steps_per_eval,
           evaluator,
           args.output
