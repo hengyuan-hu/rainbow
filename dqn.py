@@ -1,14 +1,10 @@
 """Main DQN agent."""
-import os
-import time
 import copy
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
 import utils
-from policy import GreedyEpsilonPolicy
-import core
 
 
 class DQNAgent(object):
@@ -93,17 +89,17 @@ class DistributionalDQNAgent(DQNAgent):
             states: Variable [batch, channel, w, h]
         """
         probs = q_net(states) # [batch, num_actions, num_atoms]
-        # print probs.size()
-        # print self.z_vals.size()
         q_vals = (probs * self.z_vals).sum(2)
         return q_vals, probs
 
     def target_q_values(self, states):
-        q_vals, _ = self._q_values(self.target_q_net, Variable(states, volatile=True))
+        states = Variable(states, volatile=True)
+        q_vals, _ = self._q_values(self.target_q_net, states)
         return q_vals.data
 
     def online_q_values(self, states):
-        q_vals, _ = self._q_values(self.online_q_net, Variable(states, volatile=True))
+        states = Variable(states, volatile=True)
+        q_vals, _ = self._q_values(self.online_q_net, states)
         return q_vals.data
 
     def compute_targets(self, rewards, next_states, non_ends, gamma):
@@ -126,9 +122,6 @@ class DistributionalDQNAgent(DQNAgent):
         next_greedy_probs = (next_actions * next_probs.data).sum(1)
 
         # transform the distribution
-        # print rewards.size()
-        # print non_ends.size()
-        # print self.z_vals.data.size()
         rewards = rewards.unsqueeze(1)
         non_ends = non_ends.unsqueeze(1)
         next_z_vals = rewards + gamma * non_ends * self.z_vals.data

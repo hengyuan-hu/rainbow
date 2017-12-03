@@ -1,9 +1,8 @@
 """Core classes."""
-import utils
 import random
 import torch
-import time
 import numpy as np
+import utils
 from policy import GreedyEpsilonPolicy
 
 

@@ -1,13 +1,10 @@
-"""Main DQN agent."""
 import os
 import time
-import copy
 import torch
 import torch.nn
 from torch.autograd import Variable
 import numpy as np
 import utils
-from policy import GreedyEpsilonPolicy
 import core
 from logger import Logger
 
@@ -110,12 +107,12 @@ def evaluate(env, policy, num_epsd):
                 state = env.reset()
             eps_idx += 1
 
-    avg_rewards =total_rewards.mean()
+    avg_rewards = total_rewards.mean()
     eps_log = '>>>Eval: avg total rewards: %s\n' % avg_rewards
     log += eps_log
     log += '>>>Eval: actions dist:\n'
     probs = list(actions/actions.sum())
-    for a, p in enumerate(probs):
-        log += '\t action: %d, p: %.4f\n' % (a, p)
+    for action, prob in enumerate(probs):
+        log += '\t action: %d, p: %.4f\n' % (action, prob)
 
     return avg_rewards, log
