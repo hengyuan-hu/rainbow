@@ -93,19 +93,24 @@ def evaluate(env, policy, num_epsd):
     eps_idx = 0
     log = ''
 
+    eps_frames = 0
+    max_eps_frames = 108000
     while eps_idx < num_epsd:
         action = policy.get_action(state)
         actions[action] += 1
         state, _ = env.step(action)
+        eps_frames += 1
 
-        if env.end:
+        if env.end or eps_frames >= max_eps_frames:
             total_rewards[eps_idx] = env.total_reward
             eps_log = ('>>>Eval: [%d/%d], rewards: %s\n' %
                        (eps_idx+1, num_epsd, total_rewards[eps_idx]))
             log += eps_log
             if eps_idx < num_epsd - 1: # leave last reset to next run
                 state = env.reset()
+
             eps_idx += 1
+            eps_frames = 0
 
     avg_rewards = total_rewards.mean()
     eps_log = '>>>Eval: avg total rewards: %s\n' % avg_rewards
