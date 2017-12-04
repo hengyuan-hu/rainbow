@@ -29,16 +29,16 @@ def main():
     parser.add_argument('--num_frames', default=4, type=int, help='nframe, QNet input')
     parser.add_argument('--frame_size', default=84, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--steps_per_update', default=4, type=int)
-    parser.add_argument('--steps_per_sync', default=32000, type=int)
+    parser.add_argument('--frames_per_update', default=4, type=int)
+    parser.add_argument('--frames_per_sync', default=32000, type=int)
 
     parser.add_argument('--train_start_eps', default=1.0, type=float)
     parser.add_argument('--train_final_eps', default=0.01, type=float)
     parser.add_argument('--train_eps_num_steps', default=int(1e6), type=int)
     parser.add_argument('--eval_eps', default=0.001, type=float)
-    parser.add_argument('--steps_per_eval', default=int(5e5), type=int)
+    parser.add_argument('--frames_per_eval', default=int(5e5), type=int)
 
-    parser.add_argument('--burn_in_steps', default=200000, type=int)
+    parser.add_argument('--burn_in_frames', default=200000, type=int)
     parser.add_argument('--no_op_start', default=30, type=int)
 
     parser.add_argument('--dev', action='store_true')
@@ -50,8 +50,8 @@ def main():
 
     args = parser.parse_args()
     if args.dev:
-        args.burn_in_steps = 500
-        args.steps_per_eval = 5000
+        args.burn_in_frames = 500
+        args.frames_per_eval = 5000
 
     game_name = args.rom.split('/')[-1].split('.')[0]
 
@@ -107,7 +107,6 @@ if __name__ == '__main__':
         large_randint(),
         False)
 
-
     if args.dist:
         num_atoms = 51
         q_net = model.build_distributional_basic_network(
@@ -131,7 +130,7 @@ if __name__ == '__main__':
     )
     eval_policy = GreedyEpsilonPolicy(args.eval_eps, agent)
     replay_memory = ReplayMemory(args.replay_buffer_size)
-    replay_memory.burn_in(train_env, agent, args.burn_in_steps)
+    replay_memory.burn_in(train_env, agent, args.burn_in_frames)
 
     evaluator = lambda : evaluate(eval_env, eval_policy, 10)
     train(agent,
@@ -141,9 +140,9 @@ if __name__ == '__main__':
           args.gamma,
           args.batch_size,
           args.num_iters,
-          args.steps_per_update,
-          args.steps_per_sync,
-          args.steps_per_eval,
+          args.frames_per_update,
+          args.frames_per_sync,
+          args.frames_per_eval,
           evaluator,
           args.output
     )

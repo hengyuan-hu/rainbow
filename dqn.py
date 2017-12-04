@@ -167,6 +167,6 @@ class DistributionalDQNAgent(DQNAgent):
         actions = actions.unsqueeze(2)
         probs = self.online_q_net(states) # [batch, num_actions, num_atoms]
         probs = (probs * actions).sum(1) # [batch, num_atoms]
-        xent = -(targets * torch.log(probs)).sum(1)
+        xent = -(targets * torch.log(probs.clamp(min=utils.EPS))).sum(1)
         xent = xent.mean(0)
         return xent

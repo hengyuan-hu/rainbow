@@ -16,9 +16,9 @@ def train(agent,
           gamma,
           batch_size,
           num_iters,
-          steps_per_update,
-          steps_per_sync,
-          steps_per_eval,
+          frames_per_update,
+          frames_per_sync,
+          frames_per_eval,
           evaluator,
           output_dir):
 
@@ -53,7 +53,7 @@ def train(agent,
         epsd_rewards += reward
         epsd_iters += 1
 
-        if (i+1) %  steps_per_update == 0:
+        if (i+1) %  frames_per_update == 0:
             # TODO, maybe: factor this out
             samples = replay_memory.sample(batch_size)
             states, actions, rewards, next_states, non_ends \
@@ -72,11 +72,11 @@ def train(agent,
 
             policy.decay()
 
-        if (i+1) % steps_per_sync == 0:
+        if (i+1) % frames_per_sync == 0:
             print 'syncing nets, i: %d' % (i+1)
             agent.sync_target()
 
-        if (i+1) % steps_per_eval == 0:
+        if (i+1) % frames_per_eval == 0:
             avg_rewards, eval_msg = evaluator()
             print logger.log(eval_msg)
 

@@ -5,6 +5,9 @@ from torch.autograd import Variable
 import numpy as np
 
 
+EPS = 1e-7
+
+
 _FLOAT32_MAX = np.finfo(np.float32).max
 _HALF_LOG_MAX = float(np.log(_FLOAT32_MAX) / 2)
 
