@@ -19,9 +19,8 @@ def large_randint():
 
 def main():
     parser = argparse.ArgumentParser(description='Run DQN on Atari')
-    parser.add_argument('--rom', default='roms/breakout.bin',
-                        help='path to rom')
-    parser.add_argument('--seed', default=6666999, type=int, help='Random seed')
+    parser.add_argument('--rom', default='roms/breakout.bin', help='path to rom')
+    parser.add_argument('--seed', default=10001, type=int, help='Random seed')
     parser.add_argument('--q_net', default='', type=str, help='load pretrained q net')
     parser.add_argument('--gamma', default=0.99, type=float, help='discount factor')
     parser.add_argument('--num_iters', default=int(5e7), type=int)

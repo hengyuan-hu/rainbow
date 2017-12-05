@@ -5,7 +5,7 @@ import torch
 
 class GreedyEpsilonPolicy(object):
     def __init__(self, epsilon, q_agent):
-        self.epsilon = np.float32(epsilon)
+        self.epsilon = float(epsilon)
         self.q_agent = q_agent
 
     def get_action(self, state):
@@ -15,7 +15,7 @@ class GreedyEpsilonPolicy(object):
             state: numpy-array [num_frames, w, h]
 
         return:
-            action: int, [0, num_actions)
+            action: int, in range [0, num_actions)
         """
         if np.random.uniform() <= self.epsilon:
             action = np.random.randint(0, self.q_agent.num_actions)
@@ -40,14 +40,10 @@ class LinearDecayGreedyEpsilonPolicy(GreedyEpsilonPolicy):
         self.num_steps = num_steps
         self.decay_rate = (start_eps - end_eps) / float(num_steps)
 
-    def get_action(self, state):
-        return super(LinearDecayGreedyEpsilonPolicy, self).get_action(state)
-
     def decay(self):
         if self.num_steps > 0:
             self.epsilon -= self.decay_rate
             self.num_steps -= 1
-
 
 
 # if __name__ == '__main__':
