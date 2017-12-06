@@ -1,5 +1,7 @@
+import math
 import torch
 import torch.nn as nn
+from torch.autograd import Variable
 import utils
 
 
@@ -56,12 +58,60 @@ class DistributionalBasicNetwork(nn.Module):
         return probs
 
 
+class NoisyLinear(nn.Module):
+    """Factorised Gaussian NoisyNet"""
+    def __init__(self, in_features, out_features, sigma0):
+        super(NoisyLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.bias = nn.Parameter(torch.Tensor(out_features))
+        self.noisy_weight = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.noisy_bias = nn.Parameter(torch.Tensor(out_features))
+        self.reset_parameters()
+
+        self.noise_std = sigma0 / math.sqrt(self.in_features)
+        self.in_noise = torch.FloatTensor(in_features).cuda()
+        self.out_noise = torch.FloatTensor(out_features).cuda()
+        self.noise = None
+        self.sample_noise()
+
+    def sample_noise(self):
+        self.in_noise.normal_(0, self.noise_std)
+        self.out_noise.normal_(0, self.noise_std)
+        self.noise = torch.mm(self.out_noise.view(-1, 1), self.in_noise.view(1, -1))
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+        self.noisy_weight.data.uniform_(-stdv, stdv)
+        if self.bias is not None:
+            self.bias.data.uniform_(-stdv, stdv)
+            self.noisy_bias.data.uniform_(-stdv, stdv)
+
+    def forward(self, x):
+        normal_y =  nn.functional.linear(x, self.weight, self.bias)
+        if not x.volatile:
+            # update the noise once per update
+            self.sample_noise()
+
+        noisy_weight = self.noisy_weight * Variable(self.noise)
+        noisy_bias = self.noisy_bias * Variable(self.out_noise)
+        noisy_y = nn.functional.linear(x, noisy_weight, noisy_bias)
+        return noisy_y + normal_y
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(' \
+            + 'in_features=' + str(self.in_features) \
+            + ', out_features=' + str(self.out_features) + ')'
+
+
 # ---------------------------------------
 
 
-def _build_default_conv(input_channels):
+def _build_default_conv(in_channels):
     conv = nn.Sequential(
-        nn.Conv2d(input_channels, 32, 8, 4),
+        nn.Conv2d(in_channels, 32, 8, 4),
         nn.ReLU(),
         nn.Conv2d(32, 64, 4, 2),
         nn.ReLU(),
@@ -81,27 +131,48 @@ def _build_fc(dims):
     return fc
 
 
-def build_basic_network(input_channels, input_size, output_dim, net_file):
-    conv = _build_default_conv(input_channels)
+def _build_noisy_fc(dims, sigma0):
+    layers = [NoisyLinear(dims[0], dims[1], sigma0)]
+    for i in range(1, len(dims) - 1):
+        layers.append(nn.ReLU())
+        layers.append(NoisyLinear(dims[i], dims[i+1], sigma0))
 
-    input_shape = (1, input_channels, input_size, input_size)
-    fc_in = utils.count_output_size(input_shape, conv)
+    fc = nn.Sequential(*layers)
+    return fc
+
+
+def build_basic_network(in_channels, in_size, out_dim, noisy, sigma0, net_file):
+    conv = _build_default_conv(in_channels)
+
+    in_shape = (1, in_channels, in_size, in_size)
+    fc_in = utils.count_output_size(in_shape, conv)
     fc_hid = 512
-    fc = _build_fc([fc_in, fc_hid, output_dim])
+    dims = [fc_in, fc_hid, out_dim]
+    if noisy:
+        fc = _build_noisy_fc(dims, sigma0)
+    else:
+        fc = _build_fc(dims)
 
     net = BasicNetwork(conv, fc)
     utils.init_net(net, net_file)
     return net
 
 
-def build_dueling_network(input_channels, input_size, output_dim, net_file):
-    conv = _build_default_conv(input_channels)
+def build_dueling_network(in_channels, in_size, out_dim, noisy, sigma0, net_file):
+    conv = _build_default_conv(in_channels)
 
-    input_shape = (1, input_channels, input_size, input_size)
-    fc_in = utils.count_output_size(input_shape, conv)
+    in_shape = (1, in_channels, in_size, in_size)
+    fc_in = utils.count_output_size(in_shape, conv)
     fc_hid = 512
-    adv = _build_fc([fc_in, fc_hid, output_dim])
-    val = _build_fc([fc_in, fc_hid, 1])
+    adv_dims = [fc_in, fc_hid, out_dim]
+    val_dims = [fc_in, fc_hid, 1]
+
+    if noisy:
+        adv = _build_noisy_fc(adv_dims, sigma0)
+        val = _build_noisy_fc(val_dims, sigma0)
+    else:
+        adv = _build_fc(adv_dims)
+        val = _build_fc(val_dims)
 
     net = DuelingNetwork(conv, adv, val)
     utils.init_net(net, net_file)
@@ -109,16 +180,20 @@ def build_dueling_network(input_channels, input_size, output_dim, net_file):
 
 
 def build_distributional_basic_network(
-        input_channels, input_size, output_dim, num_atoms, net_file):
+        in_channels, in_size, out_dim, num_atoms, noisy, sigma0, net_file):
 
-    conv = _build_default_conv(input_channels)
+    conv = _build_default_conv(in_channels)
 
-    input_shape = (1, input_channels, input_size, input_size)
-    fc_in = utils.count_output_size(input_shape, conv)
+    in_shape = (1, in_channels, in_size, in_size)
+    fc_in = utils.count_output_size(in_shape, conv)
     fc_hid = 512
-    fc = _build_fc([fc_in, fc_hid, output_dim * num_atoms])
+    fc_dims = [fc_in, fc_hid, out_dim * num_atoms]
+    if noisy:
+        fc = _build_noisy_fc(fc_dims, sigma0)
+    else:
+        fc = _build_fc(fc_dims)
 
-    net = DistributionalBasicNetwork(conv, fc, output_dim, num_atoms)
+    net = DistributionalBasicNetwork(conv, fc, out_dim, num_atoms)
     utils.init_net(net, net_file)
     return net
 

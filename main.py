@@ -12,7 +12,6 @@ from core import ReplayMemory
 from train import train, evaluate
 
 
-
 def large_randint():
     return random.randint(int(1e5), int(1e6))
 
@@ -31,12 +30,17 @@ def main():
     parser.add_argument('--frames_per_update', default=4, type=int)
     parser.add_argument('--frames_per_sync', default=32000, type=int)
 
+    # for using eps-greedy exploration
     parser.add_argument('--train_start_eps', default=1.0, type=float)
     parser.add_argument('--train_final_eps', default=0.01, type=float)
     parser.add_argument('--train_eps_num_steps', default=int(1e6), type=int)
+
+    # for noisy net
+    parser.add_argument('--noisy_net', action='store_true')
+    parser.add_argument('--sigma0', default=0.4, type=float)
+
     parser.add_argument('--eval_eps', default=0.001, type=float)
     parser.add_argument('--frames_per_eval', default=int(5e5), type=int)
-
     parser.add_argument('--burn_in_frames', default=200000, type=int)
     parser.add_argument('--no_op_start', default=30, type=int)
 
@@ -46,6 +50,7 @@ def main():
     parser.add_argument('--double_dqn', action='store_true')
     parser.add_argument('--dueling', action='store_true')
     parser.add_argument('--dist', action='store_true')
+    parser.add_argument('--num_atoms', default=51, type=int)
 
     args = parser.parse_args()
     if args.dev:
@@ -55,6 +60,9 @@ def main():
     game_name = args.rom.split('/')[-1].split('.')[0]
 
     model_name = []
+    if args.noisy_net:
+        model_name.append('noisy')
+
     if args.dist:
         model_name.append('dist')
 
@@ -107,26 +115,33 @@ if __name__ == '__main__':
         False)
 
     if args.dist:
-        num_atoms = 51
+        assert not args.dueling
         q_net = model.build_distributional_basic_network(
-            4, 84, train_env.num_actions, num_atoms, None).cuda()
+            4, 84, train_env.num_actions, args.num_atoms,
+            args.noisy_net, args.sigma0, None).cuda()
         agent = dqn.DistributionalDQNAgent(
-            q_net, args.double_dqn, train_env.num_actions, num_atoms, -10, 10)
+            q_net, args.double_dqn, train_env.num_actions, args.num_atoms, -10, 10)
     else:
         if args.dueling:
-            q_net = model.build_dueling_network(4, 84, train_env.num_actions, None)
+            q_net = model.build_dueling_network(
+                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, None)
         else:
-            q_net = model.build_basic_network(4, 84, train_env.num_actions, None)
+            q_net = model.build_basic_network(
+                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, None)
 
         q_net.cuda()
         agent = dqn.DQNAgent(q_net, args.double_dqn, train_env.num_actions)
 
-    train_policy = LinearDecayGreedyEpsilonPolicy(
-        args.train_start_eps,
-        args.train_final_eps,
-        args.train_eps_num_steps,
-        agent
-    )
+    if args.noisy_net:
+        train_policy = GreedyEpsilonPolicy(0, agent)
+    else:
+        train_policy = LinearDecayGreedyEpsilonPolicy(
+            args.train_start_eps,
+            args.train_final_eps,
+            args.train_eps_num_steps,
+            agent
+        )
+
     eval_policy = GreedyEpsilonPolicy(args.eval_eps, agent)
     replay_memory = ReplayMemory(args.replay_buffer_size)
     replay_memory.burn_in(train_env, agent, args.burn_in_frames)

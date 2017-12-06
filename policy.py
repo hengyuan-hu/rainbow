@@ -31,6 +31,9 @@ class GreedyEpsilonPolicy(object):
         action = q_vals.argmax()
         return action
 
+    def decay(self):
+        return
+
 
 class LinearDecayGreedyEpsilonPolicy(GreedyEpsilonPolicy):
     """Policy with a parameter that decays linearly.

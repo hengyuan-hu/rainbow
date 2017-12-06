@@ -53,14 +53,13 @@ def train(agent,
         epsd_rewards += reward
         epsd_iters += 1
 
-        if (i+1) %  frames_per_update == 0:
+        if (i+1) % frames_per_update == 0:
             # TODO, maybe: factor this out
             samples = replay_memory.sample(batch_size)
             states, actions, rewards, next_states, non_ends \
                 = core.samples_to_tensors(samples)
             actions = utils.one_hot(actions.unsqueeze(1), agent.num_actions)
             targets = agent.compute_targets(rewards, next_states, non_ends, gamma)
-
             states = Variable(states)
             actions = Variable(actions)
             targets = Variable(targets)
@@ -69,7 +68,6 @@ def train(agent,
             optim.step()
             optim.zero_grad()
             logger.append('loss', loss.data[0])
-
             policy.decay()
 
         if (i+1) % frames_per_sync == 0:
@@ -83,6 +81,11 @@ def train(agent,
             if avg_rewards > best_avg_rewards:
                 prefix = os.path.join(output_dir, '')
                 agent.save_q_net(prefix)
+
+            print 'Train Action distribution:'
+            for action, count in enumerate(action_dist):
+                prob = float(count) / action_dist.sum()
+                print '\t action: %d, p: %.4f' % (action, prob)
 
 
 def evaluate(env, policy, num_epsd):
