@@ -86,6 +86,7 @@ def train(agent,
             for action, count in enumerate(action_dist):
                 prob = float(count) / action_dist.sum()
                 print '\t action: %d, p: %.4f' % (action, prob)
+                action_dist = np.zeros(env.num_actions)
 
 
 def evaluate(env, policy, num_epsd):
