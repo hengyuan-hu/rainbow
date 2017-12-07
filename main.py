@@ -52,6 +52,8 @@ def main():
     parser.add_argument('--dist', action='store_true')
     parser.add_argument('--num_atoms', default=51, type=int)
 
+    parser.add_argument('--net', default=None, type=str)
+
     args = parser.parse_args()
     if args.dev:
         args.burn_in_frames = 500
@@ -118,16 +120,16 @@ if __name__ == '__main__':
         assert not args.dueling
         q_net = model.build_distributional_basic_network(
             4, 84, train_env.num_actions, args.num_atoms,
-            args.noisy_net, args.sigma0, None).cuda()
+            args.noisy_net, args.sigma0, args.net).cuda()
         agent = dqn.DistributionalDQNAgent(
             q_net, args.double_dqn, train_env.num_actions, args.num_atoms, -10, 10)
     else:
         if args.dueling:
             q_net = model.build_dueling_network(
-                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, None)
+                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, args.net)
         else:
             q_net = model.build_basic_network(
-                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, None)
+                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, args.net)
 
         q_net.cuda()
         agent = dqn.DQNAgent(q_net, args.double_dqn, train_env.num_actions)

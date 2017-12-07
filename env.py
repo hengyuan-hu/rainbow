@@ -75,13 +75,11 @@ class Environment(object):
             self.frame_queue.append(
                 np.zeros((self.frame_size, self.frame_size), dtype=np.float32))
 
-        # if self.ale.game_over():
         self.ale.reset_game()
         self.clipped_reward = 0
         self.total_reward = 0
-        # else:
-        #     assert self.dead_as_eoe
         self.prev_screen = np.zeros(self.prev_screen.shape, dtype=np.float32)
+
         n = np.random.randint(0, self.no_op_start)
         for i in range(n):
             if i == n - 1:
@@ -89,7 +87,6 @@ class Environment(object):
             self.ale.act(0)
 
         self.frame_queue.append(self._get_current_frame())
-
         return np.array(self.frame_queue)
 
     def step(self, action_idx):
