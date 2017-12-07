@@ -75,18 +75,18 @@ def train(agent,
             agent.sync_target()
 
         if (i+1) % frames_per_eval == 0:
-            avg_rewards, eval_msg = evaluator()
-            print logger.log(eval_msg)
+            # avg_rewards, eval_msg = evaluator()
+            # print logger.log(eval_msg)
 
-            if avg_rewards > best_avg_rewards:
-                prefix = os.path.join(output_dir, '')
-                agent.save_q_net(prefix)
+            # if avg_rewards > best_avg_rewards:
+            #     prefix = os.path.join(output_dir, '')
+            #     agent.save_q_net(prefix)
 
             print 'Train Action distribution:'
             for action, count in enumerate(action_dist):
                 prob = float(count) / action_dist.sum()
                 print '\t action: %d, p: %.4f' % (action, prob)
-                action_dist = np.zeros(env.num_actions)
+            action_dist = np.zeros(env.num_actions)
 
 
 def evaluate(env, policy, num_epsd):
