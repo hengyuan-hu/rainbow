@@ -102,7 +102,7 @@ if __name__ == '__main__':
         frame_skip,
         args.num_frames,
         args.frame_size,
-        0, # args.no_op_start,
+        1, # args.no_op_start,
         large_randint(),
         True)
     eval_env = Environment(
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         frame_skip,
         args.num_frames,
         args.frame_size,
-        args.no_op_start,
+        args.no_op_start + 1,
         large_randint(),
         False)
 

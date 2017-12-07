@@ -81,6 +81,7 @@ class Environment(object):
         self.total_reward = 0
         # else:
         #     assert self.dead_as_eoe
+        self.prev_screen = np.zeros(self.prev_screen.shape, dtype=np.float32)
         n = np.random.randint(0, self.no_op_start)
         for i in range(n):
             if i == n - 1:
