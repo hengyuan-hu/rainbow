@@ -70,7 +70,6 @@ class Environment(object):
         return frame
 
     def reset(self):
-        self.end = False
         for _ in range(self.num_frames - 1):
             self.frame_queue.append(
                 np.zeros((self.frame_size, self.frame_size), dtype=np.float32))
@@ -87,6 +86,8 @@ class Environment(object):
             self.ale.act(0)
 
         self.frame_queue.append(self._get_current_frame())
+        assert not self.ale.game_over()
+        self.end = False
         return np.array(self.frame_queue)
 
     def step(self, action_idx):
