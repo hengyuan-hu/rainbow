@@ -53,8 +53,7 @@ class DistributionalBasicNetwork(nn.Module):
         y = y.view(batch, -1)
         y = self.fc(y)
         logits = y.view(batch, self.num_actions, self.num_atoms)
-        # TODO: use pytorch softmax here
-        probs = utils.softmax(logits, 2)
+        probs = nn.functional.softmax(logits, 2)
         return probs
 
 

@@ -8,18 +8,6 @@ import numpy as np
 EPS = 1e-7
 
 
-_FLOAT32_MAX = np.finfo(np.float32).max
-_HALF_LOG_MAX = float(np.log(_FLOAT32_MAX) / 2)
-
-
-def softmax(x, dim):
-    a = x.max(dim, keepdim=True)[0] - _HALF_LOG_MAX
-    x = x - a.expand_as(x)
-    exp_x = torch.exp(x)
-    sum_exp = exp_x.sum(dim, keepdim=True).expand_as(exp_x)
-    return exp_x / sum_exp
-
-
 def assert_eq(real, expected):
     assert real == expected, '%s (true) vs %s (expected)' % (real, expected)
 
