@@ -9,6 +9,21 @@ import core
 from logger import Logger
 
 
+def update_agent(agent, replay_memory, gamma, optim, batch_size):
+    samples = replay_memory.sample(batch_size)
+    states, actions, rewards, next_states, non_ends = core.samples_to_tensors(samples)
+    actions = utils.one_hot(actions.unsqueeze(1), agent.num_actions)
+    targets = agent.compute_targets(rewards, next_states, non_ends, gamma)
+    states = Variable(states)
+    actions = Variable(actions)
+    targets = Variable(targets)
+    loss = agent.loss(states, actions, targets)
+    loss.backward()
+    optim.step()
+    optim.zero_grad()
+    return loss.data[0]
+
+
 def train(agent,
           env,
           policy,
@@ -50,24 +65,19 @@ def train(agent,
         next_state, reward = env.step(action)
         replay_memory.append(state, action, reward, next_state, env.end)
         state = next_state
-        epsd_rewards += reward
         epsd_iters += 1
+        epsd_rewards += reward
+
+        if epsd_iters > frames_per_eval:
+            print state.mean()
+            print action
+
+        if epsd_iters > frames_per_eval + 10:
+            return
 
         if (i+1) % frames_per_update == 0:
-            # TODO, maybe: factor this out
-            samples = replay_memory.sample(batch_size)
-            states, actions, rewards, next_states, non_ends \
-                = core.samples_to_tensors(samples)
-            actions = utils.one_hot(actions.unsqueeze(1), agent.num_actions)
-            targets = agent.compute_targets(rewards, next_states, non_ends, gamma)
-            states = Variable(states)
-            actions = Variable(actions)
-            targets = Variable(targets)
-            loss = agent.loss(states, actions, targets)
-            loss.backward()
-            optim.step()
-            optim.zero_grad()
-            logger.append('loss', loss.data[0])
+            loss = update_agent(agent, replay_memory, gamma, optim, batch_size)
+            logger.append('loss', loss)
             policy.decay()
 
         if (i+1) % frames_per_sync == 0:
@@ -77,9 +87,9 @@ def train(agent,
 
         if (i+1) % frames_per_eval == 0:
             print 'Train Action distribution:'
-            for action, count in enumerate(action_dist):
+            for act, count in enumerate(action_dist):
                 prob = float(count) / action_dist.sum()
-                print '\t action: %d, p: %.4f' % (action, prob)
+                print '\t action: %d, p: %.4f' % (act, prob)
             action_dist = np.zeros(env.num_actions)
 
             avg_rewards, eval_msg = evaluator()
@@ -88,6 +98,7 @@ def train(agent,
             if avg_rewards > best_avg_rewards:
                 prefix = os.path.join(output_dir, '')
                 agent.save_q_net(prefix)
+
 
 
 def evaluate(env, policy, num_epsd):

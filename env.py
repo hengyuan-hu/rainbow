@@ -119,7 +119,7 @@ class Environment(object):
 
 if __name__ == '__main__':
 
-    env = Environment('roms/space_invaders.bin', 4, 4, 84, 30, 33, False)
+    env = Environment('roms/breakout.bin', 4, 4, 84, 30, 33, False)
     print 'starting with game over?', env.ale.game_over()
 
     state = env.reset()
