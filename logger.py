@@ -11,7 +11,7 @@ class Logger(object):
         vals = self.infos.setdefault(key, [])
         vals.append(val)
 
-    def log(self, extra_msg):
+    def log(self, extra_msg=''):
         msgs = [extra_msg]
         for key, vals in self.infos.iteritems():
             msgs.append('%s %.6f' % (key, np.mean(vals)))
@@ -20,3 +20,8 @@ class Logger(object):
         self.log_file.flush()
         self.infos = {}
         return msg
+
+    def write(self, msg):
+        self.log_file.write(msg + '\n')
+        self.log_file.flush()
+        print msg

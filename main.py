@@ -104,7 +104,7 @@ if __name__ == '__main__':
         frame_skip,
         args.num_frames,
         args.frame_size,
-        1, # args.no_op_start,
+        args.no_op_start + 1,
         large_randint(),
         True)
     eval_env = Environment(
@@ -120,7 +120,8 @@ if __name__ == '__main__':
         assert not args.dueling
         q_net = model.build_distributional_basic_network(
             4, 84, train_env.num_actions, args.num_atoms,
-            args.noisy_net, args.sigma0, args.net).cuda()
+            args.noisy_net, args.sigma0, args.net)
+        q_net.cuda()
         agent = dqn.DistributionalDQNAgent(
             q_net, args.double_dqn, train_env.num_actions, args.num_atoms, -10, 10)
     else:
@@ -148,7 +149,7 @@ if __name__ == '__main__':
     replay_memory = ReplayMemory(args.replay_buffer_size)
     replay_memory.burn_in(train_env, agent, args.burn_in_frames)
 
-    evaluator = lambda : evaluate(eval_env, eval_policy, 10)
+    evaluator = lambda logger : evaluate(eval_env, eval_policy, 10, logger)
     train(agent,
           train_env,
           train_policy,
