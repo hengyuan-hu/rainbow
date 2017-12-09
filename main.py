@@ -137,12 +137,13 @@ if __name__ == '__main__':
     if args.noisy_net:
         train_policy = GreedyEpsilonPolicy(0, agent)
     else:
-        train_policy = LinearDecayGreedyEpsilonPolicy(
-            args.train_start_eps,
-            args.train_final_eps,
-            args.train_eps_num_steps,
-            agent
-        )
+        train_policy = GreedyEpsilonPolicy(0, agent)
+        # train_policy = LinearDecayGreedyEpsilonPolicy(
+        #     args.train_start_eps,
+        #     args.train_final_eps,
+        #     args.train_eps_num_steps,
+        #     agent
+        # )
 
     eval_policy = GreedyEpsilonPolicy(args.eval_eps, agent)
     replay_memory = ReplayMemory(args.replay_buffer_size)
