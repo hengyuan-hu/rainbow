@@ -7,7 +7,6 @@ import numpy as np
 import utils
 import core
 from logger import Logger
-import cv2
 
 
 def update_agent(agent, replay_memory, gamma, optim, batch_size):
@@ -50,7 +49,7 @@ def train(agent,
     for i in xrange(num_iters):
         if env.end:
             num_epsd += 1
-            if num_epsd % 2 == 0:
+            if num_epsd % 10 == 0:
                 fps = epsd_iters / (time.time() - t)
                 msg = 'Episode: %d, Iter: %d, Fps: %.2f'
                 print logger.log(msg % (num_epsd, i+1, fps))
@@ -76,10 +75,10 @@ def train(agent,
         if epsd_iters > frames_per_eval + 10:
             return
 
-        # if (i+1) % frames_per_update == 0:
-        #     loss = update_agent(agent, replay_memory, gamma, optim, batch_size)
-        #     logger.append('loss', loss)
-        #     policy.decay()
+        if (i+1) % frames_per_update == 0:
+            loss = update_agent(agent, replay_memory, gamma, optim, batch_size)
+            logger.append('loss', loss)
+            policy.decay()
 
         if (i+1) % frames_per_sync == 0:
             print 'syncing nets, i: %d' % (i+1)
@@ -101,6 +100,7 @@ def train(agent,
                 agent.save_q_net(prefix)
 
 
+
 def evaluate(env, policy, num_epsd):
     state = env.reset()
     actions = np.zeros(env.num_actions)
@@ -111,7 +111,6 @@ def evaluate(env, policy, num_epsd):
 
     eps_frames = 0
     max_eps_frames = 108000
-    print 'where you are'
     while eps_idx < num_epsd:
         action = policy.get_action(state)
         actions[action] += 1
@@ -119,9 +118,6 @@ def evaluate(env, policy, num_epsd):
         eps_frames += 1
 
         if env.end or eps_frames >= max_eps_frames:
-            print 'num_epsd:', eps_idx+1,\
-                'reward:', env.total_reward, 'steps:', eps_frames
-
             total_rewards[eps_idx] = env.total_reward
             eps_log = ('>>>Eval: [%d/%d], rewards: %s\n' %
                        (eps_idx+1, num_epsd, total_rewards[eps_idx]))
@@ -131,24 +127,6 @@ def evaluate(env, policy, num_epsd):
 
             eps_idx += 1
             eps_frames = 0
-
-        if eps_frames > 0 and eps_frames % 10000 == 0:
-            print 'eps_frames:', eps_frames
-            print 'game over?', env.ale.game_over()
-            print 'lives:', env.ale.lives()
-            print 'reward:', env.total_reward
-
-            probs = list(actions/actions.sum())
-            for action, prob in enumerate(probs):
-                print '\t action: %d, p: %.4f' % (action, prob)
-            actions = np.zeros(env.num_actions)
-
-        if eps_frames > 10000 and eps_frames % 100 == 0:
-            for idx, f in enumerate(state):
-                f *= 255.0
-                filename = 'debug/%d-%d-%d.png' % (eps_idx, eps_frames, idx)
-                cv2.imwrite(filename, cv2.resize(f, (800, 800)))
-
 
     avg_rewards = total_rewards.mean()
     eps_log = '>>>Eval: avg total rewards: %s\n' % avg_rewards
