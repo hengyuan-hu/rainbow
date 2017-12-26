@@ -1,9 +1,9 @@
-#Pytorch Implementation of Rainbow
+# Pytorch Implementation of Rainbow
 
 This repo is a partial implementation of the [Rainbow](https://arxiv.org/pdf/1710.02298.pdf) 
 agent published by researchers from DeepMind.
 The implementation is efficient and of high quality. It trains at the speed of 
-350 frames/s on my personal PC with a 3.5GHz CPU and GTX1080 GPU.
+350 frames/s on a PC with a 3.5GHz CPU and GTX1080 GPU.
 
 Rainbow is a deep Q learning based agent that combines a bunch of existing techiques
 such as dueling dqn, distributional dqn, etc. This repo currenly implemented the 
@@ -18,14 +18,14 @@ and it will need the following extensions to become a full "Rainbow":
 * Multi-step learning
 * Priority Replay
 
-##Hyperparameters
+## Hyperparameters
 
 The hyperparameters in this repo follows the ones described in 
 [Rainbow](https://arxiv.org/pdf/1710.02298.pdf)
 paper as close as possible. However, there may still be some differences due to
 misunderstanding.
 
-##Performance
+## Performance
 
 DQN agent often takes days to train. For sanity check, we can
 train a agent to play a simple game "boxing". Follwing is the learning curve
@@ -44,12 +44,12 @@ Note that the publicly reported numbers on papers are produced by training the a
 
 Figures here are smoothed.
 
-##Future Works
+## Future Works
 
 We plan to implement multi-step learing and priority replay. Also, the current
 implementation uses a simple wrapper on the [Arcade Learning Enviroment](https://github.com/mgbellemare/Arcade-Learning-Environment).
 We may want to shift to OpenAI gym for better visualization and video recording.
 On top of Rainbow, it will also be interesting to include other new techniques,
-such as [Distributional RL with Quantile Regression](https://arxiv.org/pdf/1710.10044.pdf)
+such as [Distributional RL with Quantile Regression](https://arxiv.org/pdf/1710.10044.pdf).
 
 Contributions and bug-catchings are welcome!
