@@ -5,13 +5,13 @@ import torch.nn
 from torch.autograd import Variable
 import numpy as np
 import utils
-import core
+from core import samples_to_tensors
 from logger import Logger
 
 
 def update_agent(agent, replay_memory, gamma, optim, batch_size):
     samples = replay_memory.sample(batch_size)
-    states, actions, rewards, next_states, non_ends = core.samples_to_tensors(samples)
+    states, actions, rewards, next_states, non_ends = samples_to_tensors(samples)
     actions = utils.one_hot(actions.unsqueeze(1), agent.num_actions)
     targets = agent.compute_targets(rewards, next_states, non_ends, gamma)
     states = Variable(states)
@@ -52,7 +52,8 @@ def train(agent,
             num_epsd += 1
             if num_epsd % 10 == 0:
                 fps = epsd_iters / (time.time() - t)
-                logger.write('Episode: %d, Iter: %d, Fps: %.2f' % (num_epsd, i+1, fps))
+                logger.write('Episode: %d, Iter: %d, Fps: %.2f'
+                             % (num_epsd, i+1, fps))
                 logger.write('sum clipped rewards %d' %  epsd_rewards)
                 logger.log()
                 epsd_iters = 0
@@ -77,8 +78,6 @@ def train(agent,
         if (i+1) % frames_per_sync == 0:
             logger.write('>>>syncing nets, i: %d' % (i+1))
             agent.sync_target()
-            logger.write('>>>epsd: %d, epsd_iter: %d, rewards: %d' %
-                         (num_epsd, epsd_iters, epsd_rewards))
 
         if (i+1) % frames_per_eval == 0:
             logger.write('Train Action distribution:')

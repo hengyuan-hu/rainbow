@@ -1,4 +1,7 @@
 """Common functions you may find useful in your implementation."""
+import os
+import json
+import random
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -24,7 +27,7 @@ def assert_frozen(module):
 
 
 def weights_init(m):
-    """custom weights initialization called on net_g and net_f."""
+    """custom weights initialization"""
     classtype = m.__class__
     if classtype == nn.Linear or classtype == nn.Conv2d:
         m.weight.data.normal_(0.0, 0.02)
@@ -53,3 +56,38 @@ def one_hot(x, n):
     one_hot_x = torch.zeros(x.size(0), n).cuda()
     one_hot_x.scatter_(1, x, 1)
     return one_hot_x
+
+
+def large_randint():
+    return random.randint(int(1e5), int(1e6))
+
+
+def set_all_seeds(rand_seed):
+    random.seed(rand_seed)
+    np.random.seed(large_randint())
+    torch.manual_seed(large_randint())
+    torch.cuda.manual_seed(large_randint())
+
+
+class Config(object):
+    def __init__(self, attrs):
+        self.__dict__.update(attrs)
+
+    @classmethod
+    def load(cls, filename):
+        with open(filename, 'r') as f:
+            attrs = json.load(f)
+        return cls(attrs)
+
+    def dump(self, filename):
+        dirname = os.path.dirname(filename)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        print 'Results will be stored in:', dirname
+
+        with open(filename, 'w') as f:
+            json.dump(vars(self), f, sort_keys=True, indent=2)
+            f.write('\n')
+
+    def __repr__(self):
+        return json.dumps(vars(self), sort_keys=True, indent=2)

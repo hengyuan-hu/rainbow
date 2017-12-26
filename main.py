@@ -1,30 +1,32 @@
 """Run Atari Environment with DQN."""
-import torch
-import argparse
 import os
-import random
-import numpy as np
-from env import Environment
-import dqn
-from policy import GreedyEpsilonPolicy, LinearDecayGreedyEpsilonPolicy
+import argparse
+import torch
 import model
+import dqn
+import utils
+from env import Environment
+from policy import GreedyEpsilonPolicy, LinearDecayGreedyEpsilonPolicy
 from core import ReplayMemory
 from train import train, evaluate
 
 
-def large_randint():
-    return random.randint(int(1e5), int(1e6))
-
-
 def main():
     parser = argparse.ArgumentParser(description='Run DQN on Atari')
-    parser.add_argument('--rom', default='roms/breakout.bin', help='path to rom')
-    parser.add_argument('--seed', default=10001, type=int, help='Random seed')
-    parser.add_argument('--q_net', default='', type=str, help='load pretrained q net')
-    parser.add_argument('--gamma', default=0.99, type=float, help='discount factor')
+    parser.add_argument('--rom', default='roms/breakout.bin',
+                        help='path to rom')
+    parser.add_argument('--seed', default=10001, type=int,
+                        help='Random seed')
+    parser.add_argument('--q_net', default='', type=str,
+                        help='load pretrained q net')
+    parser.add_argument('--gamma', default=0.99, type=float,
+                        help='discount factor')
     parser.add_argument('--num_iters', default=int(5e7), type=int)
     parser.add_argument('--replay_buffer_size', default=int(1e6), type=int)
-    parser.add_argument('--num_frames', default=4, type=int, help='nframe, QNet input')
+    parser.add_argument('--frame_skip', default=4, type=int,
+                        help='num frames for repeated action')
+    parser.add_argument('--num_frames', default=4, type=int,
+                        help='num stacked frames')
     parser.add_argument('--frame_size', default=84, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--frames_per_update', default=4, type=int)
@@ -45,7 +47,7 @@ def main():
     parser.add_argument('--no_op_start', default=30, type=int)
 
     parser.add_argument('--dev', action='store_true')
-    parser.add_argument('--output', default='experiments/', type=str)
+    parser.add_argument('--output', default='exps/', type=str)
     parser.add_argument('--suffix', default='', type=str)
     parser.add_argument('--double_dqn', action='store_true')
     parser.add_argument('--dueling', action='store_true')
@@ -58,6 +60,7 @@ def main():
     if args.dev:
         args.burn_in_frames = 500
         args.frames_per_eval = 5000
+        args.output = 'devs/'
 
     game_name = args.rom.split('/')[-1].split('.')[0]
 
@@ -81,56 +84,59 @@ def main():
 
     model_name = '_'.join(model_name)
     args.output = os.path.join(args.output, game_name, model_name)
-    # TODO: better this
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
-    with open(os.path.join(args.output, 'configs.txt'), 'w') as f:
-        print >>f, args
-
-    random.seed(args.seed)
-    np.random.seed(large_randint())
-    torch.manual_seed(large_randint())
-    torch.cuda.manual_seed(large_randint())
+    utils.Config(vars(args)).dump(os.path.join(args.output, 'configs.txt'))
     return args
 
 
 if __name__ == '__main__':
     args = main()
-    torch.backends.cudnn.benckmark = True
 
-    frame_skip = 4
+    torch.backends.cudnn.benckmark = True
+    utils.set_all_seeds(args.seed)
+
     train_env = Environment(
         args.rom,
-        frame_skip,
+        args.frame_skip,
         args.num_frames,
         args.frame_size,
         args.no_op_start + 1,
-        large_randint(),
+        utils.large_randint(),
         True)
     eval_env = Environment(
         args.rom,
-        frame_skip,
+        args.frame_skip,
         args.num_frames,
         args.frame_size,
         args.no_op_start + 1,
-        large_randint(),
+        utils.large_randint(),
         False)
 
     if args.dist:
-        assert not args.dueling
+        assert not args.dueling, 'not supported yet.'
         q_net = model.build_distributional_basic_network(
-            4, 84, train_env.num_actions, args.num_atoms,
-            args.noisy_net, args.sigma0, args.net)
+            args.num_frames,
+            args.frame_size,
+            train_env.num_actions,
+            args.num_atoms,
+            args.noisy_net,
+            args.sigma0,
+            args.net)
         q_net.cuda()
         agent = dqn.DistributionalDQNAgent(
             q_net, args.double_dqn, train_env.num_actions, args.num_atoms, -10, 10)
     else:
         if args.dueling:
-            q_net = model.build_dueling_network(
-                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, args.net)
+            q_net_builder = model.build_dueling_network
         else:
-            q_net = model.build_basic_network(
-                4, 84, train_env.num_actions, args.noisy_net, args.sigma0, args.net)
+            q_net_builder = model.build_basic_network
+
+        q_net = q_net_builder(
+            args.num_frames,
+            args.frame_size,
+            train_env.num_actions,
+            args.noisy_net,
+            args.sigma0,
+            args.net)
 
         q_net.cuda()
         agent = dqn.DQNAgent(q_net, args.double_dqn, train_env.num_actions)
@@ -142,14 +148,13 @@ if __name__ == '__main__':
             args.train_start_eps,
             args.train_final_eps,
             args.train_eps_num_steps,
-            agent
-        )
+            agent)
 
     eval_policy = GreedyEpsilonPolicy(args.eval_eps, agent)
     replay_memory = ReplayMemory(args.replay_buffer_size)
     replay_memory.burn_in(train_env, agent, args.burn_in_frames)
 
-    evaluator = lambda logger : evaluate(eval_env, eval_policy, 10, logger)
+    evaluator = lambda logger: evaluate(eval_env, eval_policy, 10, logger)
     train(agent,
           train_env,
           train_policy,
@@ -161,5 +166,4 @@ if __name__ == '__main__':
           args.frames_per_sync,
           args.frames_per_eval,
           evaluator,
-          args.output
-    )
+          args.output)

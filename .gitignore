@@ -1,3 +1,6 @@
 *.pyc
 test_env/
 experiments/
+exps/
+devs/
+render_plot.py
