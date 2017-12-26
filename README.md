@@ -2,7 +2,7 @@
 
 This repo is a partial implementation of the [Rainbow](https://arxiv.org/pdf/1710.02298.pdf) 
 agent published by researchers from DeepMind.
-The implementation is efficient and of high quality. It trains at the speed of 
+The implementation is efficient and of high quality. It trains at a speed of 
 350 frames/s on a PC with a 3.5GHz CPU and GTX1080 GPU.
 
 Rainbow is a deep Q learning based agent that combines a bunch of existing techiques
@@ -30,14 +30,18 @@ misunderstanding.
 DQN agent often takes days to train. For sanity check, we can
 train a agent to play a simple game "boxing". Follwing is the learning curve
 of a dueling double dqn trained on boxing.
+
 ![](figs/boxing.png)
+
 The agent almost solves boxing after around 12M frames, which is a good sign
 that the implementation is working.
 
 To test the distributional DQN and Noisy Net, the agent is trained on "breakout" since
 distributional DQN performs significantly better than others on this game, 
 reaching >400 scores rapidly while other DQN methods struggle to do so.
+
 ![](figs/breakout.png)
+
 From the figure we see that the agent can reach >400 scores very rapidly and steadily.
 Note that the publicly reported numbers on papers are produced by training the agent for
 200M frames while here it trains only for 50M frames due to computation cost.
