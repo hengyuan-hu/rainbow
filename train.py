@@ -90,6 +90,7 @@ def train(agent,
             if avg_rewards > best_avg_rewards:
                 prefix = os.path.join(output_dir, '')
                 agent.save_q_net(prefix)
+                best_avg_rewards = avg_rewards
 
 
 def evaluate(env, policy, num_epsd, logger):
