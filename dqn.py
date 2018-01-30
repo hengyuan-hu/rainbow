@@ -54,7 +54,6 @@ class DQNAgent(object):
 
     def loss(self, states, actions, targets):
         """
-
         params:
             states: Variable [batch, channel, w, h]
             actions: Variable [batch, num_actions] one hot encoding
@@ -78,8 +77,8 @@ class DistributionalDQNAgent(DQNAgent):
 
         self.delta_z = (self.vmax - self.vmin) / (num_atoms - 1)
 
-        z_vals = np.linspace(vmin, vmax, num_atoms).astype(np.float32)
-        self.z_vals = Variable(torch.from_numpy(z_vals).unsqueeze(0)).cuda()
+        zpoints = np.linspace(vmin, vmax, num_atoms).astype(np.float32)
+        self.zpoints = Variable(torch.from_numpy(zpoints).unsqueeze(0)).cuda()
 
     def _q_values(self, q_net, states):
         """internal function to compute q_value
@@ -89,7 +88,7 @@ class DistributionalDQNAgent(DQNAgent):
             states: Variable [batch, channel, w, h]
         """
         probs = q_net(states) # [batch, num_actions, num_atoms]
-        q_vals = (probs * self.z_vals).sum(2)
+        q_vals = (probs * self.zpoints).sum(2)
         return q_vals, probs
 
     def target_q_values(self, states):
@@ -124,11 +123,11 @@ class DistributionalDQNAgent(DQNAgent):
         # transform the distribution
         rewards = rewards.unsqueeze(1)
         non_ends = non_ends.unsqueeze(1)
-        next_z_vals = rewards + gamma * non_ends * self.z_vals.data
-        next_z_vals.clamp_(self.vmin, self.vmax)
+        proj_zpoints = rewards + gamma * non_ends * self.zpoints.data
+        proj_zpoints.clamp_(self.vmin, self.vmax)
 
         # project onto shared support
-        b = (next_z_vals - self.vmin) / self.delta_z
+        b = (proj_zpoints - self.vmin) / self.delta_z
         lower = b.floor()
         upper = b.ceil()
         # handle corner case where b is integer
@@ -138,6 +137,7 @@ class DistributionalDQNAgent(DQNAgent):
         lower += lt0
         upper += lt0
 
+        # note: it's faster to do the following on cpu
         ml = (next_greedy_probs * (upper - b)).cpu().numpy()
         mu = (next_greedy_probs * (b - lower)).cpu().numpy()
 
@@ -153,10 +153,8 @@ class DistributionalDQNAgent(DQNAgent):
 
         return torch.from_numpy(mass).cuda()
 
-
     def loss(self, states, actions, targets):
         """
-
         params:
             states: Variable [batch, channel, w, h]
             actions: Variable [batch, num_actions] one hot encoding
